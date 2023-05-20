@@ -35,15 +35,13 @@ DB_PORT = '5432'
 # Função para criar a conexão com o banco de dados
 def create_connection():
     connection = psycopg2.connect(
-    host='localhost',
+    host=DB_HOST,
     port=5432,
-    database='Lojas',
-    user='postgres',
-    password='mysecretpassword'
+    database=DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD
 )
     return connection
-
-print(create_connection)
 
 # Rota para registro de usuários
 @app.route('/register', methods=['POST'])
@@ -148,4 +146,4 @@ def verify():
         return jsonify({'message': 'Token inválido!'}), 401
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=5001)

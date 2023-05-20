@@ -1,6 +1,8 @@
 import psycopg2
-from flask import Flask
+from flask import Flask, request
 import hashlib
+from Auth import verify_token
+from HashFile import get_file_zip
 
 class PostgresAPI:
     def __init__(self, host, port, database, user, password):
@@ -59,9 +61,9 @@ class PostgresAPI:
             cursor = self.connection.cursor()
             cursor.execute(query)
             rows = cursor.fetchall()
-            # return  rows
             columns = [desc[0] for desc in cursor.description]
             result = [dict(zip(columns, row)) for row in rows]
+
             return result
         except (Exception, psycopg2.Error) as error:
             print("Error while executing SELECT query:", error)
@@ -69,33 +71,72 @@ class PostgresAPI:
 app = Flask(__name__)
 
 @app.route('/data', methods=['GET'])
-def get_data():
+def get_data(token = ''):
     """
     Função de endpoint que retorna os dados do banco de dados PostgreSQL como JSON.
 
     Retorna:
     - Uma resposta JSON contendo os dados retornados da consulta SELECT.
     """
-    postgres = PostgresAPI(
-        host='localhost',
-        port=5432,
-        database='Lojas',
-        user='postgres',
-        password='mysecretpassword'
-    )
-    postgres.connect()
-    # return {'select:': hashlib.md5(str(postgres.execute_select('Select * from dados')).encode()).hexdigest()}
-    select = postgres.execute_select('Select id, name from dados ')
-    lista = []
+    token = request.get_json()['token']
+    if verify_token(token):
+        postgres = PostgresAPI(
+            host='localhost',
+            port=5432,
+            database='Lojas',
+            user='postgres',
+            password='mysecretpassword'
+        )
+        postgres.connect()
+        select = postgres.execute_select('Select id, name from public.dados d ')
+        list_hash = []
 
-    for line in select:
-        linha_str = ','.join([str(line['id']), line['name']])
-        print(linha_str)
-        lista.append(hashlib.md5(str(linha_str).encode()).hexdigest())
+        for line in select:
+            line_str = ','.join([str(line['id']), line['name']])
+            list_hash.append(hashlib.md5(str(line_str).encode()).hexdigest())
+
+        postgres.close_connection()
+        
+        return list_hash
+    else:
+        return {'Error': 'databse off'}    
     
-    return lista
-        
-        
+@app.route('/file', methods=['GET'])
+def get_file():
+    """
+    Função de endpoint que retorna os dados de um arquivo CSV zipado.
 
+    Retorna:
+    - Uma resposta JSON contendo os dados retornados do arquivo.
+    """
+
+    file = request.get_json()['file']
+    path = request.get_json()['path']
+
+    hashs = get_file_zip(file, path)
+
+    return hashs
+
+@app.route('/validate', methods=['GET'])
+def validate():
+
+    token = request.get_json()['token']
+    file = get_file()
+
+    #Removendo cabeçalho
+    del file[0]
+
+    data = get_data(token)
+
+    new_itens = []
+
+    for line in file:
+        if line in data:
+            continue
+        else:
+            new_itens.append(line)
+            
+    return new_itens
+        
 if __name__ == '__main__':
     app.run()

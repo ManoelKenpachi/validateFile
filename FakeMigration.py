@@ -5,6 +5,42 @@ import csv
 import os
 import zipfile
 
+
+def verifica_cria_banco():
+    # Configurações de conexão com o banco de dados
+    db_host = "localhost"
+    db_port = "5432"
+    db_name = "postgres"
+    db_user = "postgres"
+    db_password = "mysecretpassword"
+
+    # Estabelece a conexão com o banco de dados "postgres"
+    conn = psycopg2.connect(
+        host=db_host,
+        port=db_port,
+        dbname=db_name,
+        user=db_user,
+        password=db_password
+    )
+    conn.autocommit = True
+
+    # Cria o cursor para executar comandos SQL
+    cur = conn.cursor()
+
+    # Verifica se o banco de dados "Lojas" existe
+    cur.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname='Lojas'")
+    exists = cur.fetchone()
+
+    if not exists:
+        # Cria o banco de dados "Lojas" se não existir
+        cur.execute("CREATE DATABASE Lojas")
+        print("Banco de dados 'Lojas' criado com sucesso.")
+
+    # Fecha o cursor e a conexão com o banco de dados
+    cur.close()
+    conn.close()
+
+
 # Estabelece a conexão com o banco de dados
 connection = psycopg2.connect(
     host='localhost',
@@ -13,6 +49,7 @@ connection = psycopg2.connect(
     user='postgres',
     password='mysecretpassword'
 )
+
 
 def fakemigration():
 
@@ -79,50 +116,8 @@ def fakemigration():
     # Confirma as alterações no banco de dados
     connection.commit()
 
-
     # Fecha o cursor e a conexão
     cursor.close()
     connection.close()
 
-def export_data_to_csv_and_zip():
-    # Nome do arquivo CSV e ZIP
-    csv_filename = 'dados.csv'
-    zip_filename = 'dados.zip'
-    
-    try:
-        cursor = connection.cursor()
-        
-        # Executa a consulta SELECT
-        cursor.execute('SELECT id, name FROM dados')
-        rows = cursor.fetchall()
-        
-        # Verifica se existem resultados
-        if not rows:
-            print('Nenhum dado encontrado.')
-            return
-        
-        # Gera o arquivo CSV
-        with open(csv_filename, 'w', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            csv_writer.writerow([desc[0] for desc in cursor.description])  # Escreve os cabeçalhos das colunas
-            csv_writer.writerows(rows)  # Escreve os dados
-        
-        # Cria o arquivo ZIP
-        with zipfile.ZipFile(zip_filename, 'w') as zipf:
-            zipf.write(csv_filename, os.path.basename(csv_filename))
-        
-        print('Arquivo ZIP criado com sucesso.')
-        
-    except psycopg2.Error as e:
-        print('Ocorreu um erro ao exportar os dados:', str(e))
-        
-    finally:
-        # Fecha o cursor e a conexão
-        cursor.close()
-        connection.close()
-        
-        # Remove o arquivo CSV
-        if os.path.exists(csv_filename):
-            os.remove(csv_filename)
-
-export_data_to_csv_and_zip()
+fakemigration()
